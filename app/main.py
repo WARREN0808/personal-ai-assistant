@@ -44,3 +44,15 @@ def create_message(conversation_id: int, message: MessageCreate, db: Session = D
         "content": new_message.content,
         "created_at": new_message.created_at
     }
+
+@app.get("/conversations/{conversation_id}")
+def get_conversation(conversation_id: int, db: Session = Depends(get_db)):
+    conversation = db.query(models.Conversation).filter(models.Conversation.id == conversation_id).first()
+    return {
+        "id": conversation.id,
+        "created_at": conversation.created_at,
+        "messages": [
+            {"role": m.role, "content": m.content, "created_at": m.created_at}
+            for m in conversation.messages
+        ]
+    }

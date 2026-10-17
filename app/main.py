@@ -2,10 +2,10 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.database import Base, engine, get_db
-from app.llm_client import ask_llm
 from app import models
 from typing import Optional
 from datetime import datetime
+from app.llm_client import ask_llm, generate_tasks
 
 Base.metadata.create_all(bind=engine)
 
@@ -86,7 +86,23 @@ def create_goal(goal: GoalCreate, db: Session = Depends(get_db)):
     db.add(new_goal)
     db.commit()
     db.refresh(new_goal)
-    return {"id": new_goal.id, "title": new_goal.title, "deadline": new_goal.deadline}
+
+    try:
+        task_titles = generate_tasks(new_goal.title, new_goal.deadline)
+        for title in task_titles:
+            task = models.Task(goal_id=new_goal.id, title=title)
+            db.add(task)
+        db.commit()
+    except Exception as e:
+        print(f"Erreur génération tâches : {e}")
+        task_titles = []
+
+    return {
+        "id": new_goal.id,
+        "title": new_goal.title,
+        "deadline": new_goal.deadline,
+        "tasks_generated": task_titles
+    }
 
 @app.post("/goals/{goal_id}/tasks")
 def create_task(goal_id: int, task: TaskCreate, db: Session = Depends(get_db)):

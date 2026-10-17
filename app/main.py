@@ -114,3 +114,20 @@ def create_task(goal_id: int, task: TaskCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_task)
     return {"id": new_task.id, "goal_id": goal_id, "title": new_task.title}
+
+@app.get("/goals")
+def get_goals(db: Session = Depends(get_db)):
+    goals = db.query(models.Goal).all()
+    return [
+        {
+            "id": g.id,
+            "title": g.title,
+            "deadline": g.deadline,
+            "status": g.status,
+            "tasks": [
+                {"id": t.id, "title": t.title, "status": t.status}
+                for t in g.tasks
+            ]
+        }
+        for g in goals
+    ]

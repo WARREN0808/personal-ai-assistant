@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from app.database import Base, engine, get_db
 from app.llm_client import ask_llm
 from app import models
+from typing import Optional
+from datetime import datetime
 
 Base.metadata.create_all(bind=engine)
 
@@ -13,6 +15,12 @@ app = FastAPI()
 class MessageCreate(BaseModel):
     content: str
 
+class GoalCreate(BaseModel):
+    title: str
+    deadline: Optional[datetime] = None
+
+class TaskCreate(BaseModel):
+    title: str
 
 @app.get("/")
 def read_root():
@@ -71,3 +79,22 @@ def get_conversation(conversation_id: int, db: Session = Depends(get_db)):
             for m in conversation.messages
         ],
     }
+
+@app.post("/goals")
+def create_goal(goal: GoalCreate, db: Session = Depends(get_db)):
+    new_goal = models.Goal(title=goal.title, deadline=goal.deadline)
+    db.add(new_goal)
+    db.commit()
+    db.refresh(new_goal)
+    return {"id": new_goal.id, "title": new_goal.title, "deadline": new_goal.deadline}
+
+@app.post("/goals/{goal_id}/tasks")
+def create_task(goal_id: int, task: TaskCreate, db: Session = Depends(get_db)):
+    goal = db.query(models.Goal).filter(models.Goal.id == goal_id).first()
+    if goal is None:
+        raise HTTPException(status_code=404, detail="Objectif introuvable")
+    new_task = models.Task(goal_id=goal_id, title=task.title)
+    db.add(new_task)
+    db.commit()
+    db.refresh(new_task)
+    return {"id": new_task.id, "goal_id": goal_id, "title": new_task.title}

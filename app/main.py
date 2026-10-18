@@ -54,8 +54,19 @@ def create_message(conversation_id: int, message: MessageCreate, db: Session = D
     )
     history = [{"role": m.role, "content": m.content} for m in messages]
 
+    goals = db.query(models.Goal).filter(models.Goal.status == "active").all()
+    system_prompt = None
+    if goals:
+        lines = ["Tu es un assistant personnel. Voici les objectifs actuels de l'utilisateur :\n"]
+        for g in goals:
+            deadline_str = f" (deadline : {g.deadline.strftime('%d/%m/%Y')})" if g.deadline else ""
+            lines.append(f"- {g.title}{deadline_str}")
+            for t in g.tasks:
+                lines.append(f"  • [{t.status}] {t.title}")
+        system_prompt = "\n".join(lines)
+
     try:
-        reply_text = ask_llm(history)
+        reply_text = ask_llm(history, system_prompt=system_prompt)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Erreur du modèle : {e}")
 

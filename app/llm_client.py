@@ -12,7 +12,7 @@ MODEL = "gemini-3.8-flash"
 MAX_ATTEMPTS = 3
 
 
-def ask_llm(history):
+def ask_llm(history, system_prompt=None):
     contents = []
     for m in history:
         role = "model" if m["role"] == "assistant" else "user"
@@ -20,7 +20,11 @@ def ask_llm(history):
 
     for attempt in range(MAX_ATTEMPTS):
         try:
-            response = client.models.generate_content(model=MODEL, contents=contents)
+            response = client.models.generate_content(
+                model=MODEL,
+                contents=contents,
+                config={"system_instruction": system_prompt} if system_prompt else {}
+            )
             return response.text
         except errors.ServerError:
             if attempt == MAX_ATTEMPTS - 1:
